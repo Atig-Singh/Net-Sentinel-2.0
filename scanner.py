@@ -94,7 +94,8 @@ def guess_device_type(host_data, open_ports):
 ip=target_ip
 nm=nmap.PortScanner()
 output_list=[]
-scanning=nm.scan(hosts=ip,ports="20-1024,3306,8080,5555,554,631",arguments="-sT -T4")
+scanning=nm.scan(hosts=ip,ports="20-1024,3306,8080,5555,554,631",arguments="-sT -T4")#NORMAL SCAN
+#scanning=nm.scan(hosts=ip,arguments="-sV --script vuln")#DEEP SCAN
 for host in nm.all_hosts():
     open_ports_list = []
     vuln_list = []

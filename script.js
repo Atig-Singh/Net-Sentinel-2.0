@@ -5,7 +5,6 @@ const detailsPanel = document.getElementById('detailsPanel');
 const detailTitle = document.getElementById('detailTitle');
 const detailDesc = document.getElementById('detailDesc');
 
-// --- GLOBAL STATE (Required for PDF Report) ---
 let currentDeviceData = [];
 
 // --- MOCK DATA ---
@@ -208,9 +207,7 @@ function addRing(size) {
     orbitContainer.appendChild(ring);
 }
 
-// PDF DOWNLOAD LOGIC
 const downloadBtn = document.getElementById('downloadBtn');
-// FIX: Check if button exists before adding listener to prevent errors
 if(downloadBtn) {
     downloadBtn.addEventListener('click', () => {
         if (!window.jspdf) {
@@ -263,4 +260,59 @@ if(downloadBtn) {
         
         doc.save("net-sentinel-report.pdf");
     });
+}
+
+const aiBtn = document.getElementById('aiBtn');
+const aiModal = document.getElementById('aiModal');
+const aiText = document.getElementById('aiText');
+const aiLoader = document.getElementById('aiLoader');
+const closeModal = document.querySelector('.close-modal');
+closeModal.onclick = () => aiModal.classList.add('hidden');
+window.onclick = (e) => { if(e.target == aiModal) aiModal.classList.add('hidden'); }
+
+aiBtn.addEventListener('click', async () => {
+    if(!currentDeviceData || currentDeviceData.length === 0) {
+        alert("Please scan a target first!");
+        return;
+    }
+    
+    const targetDevice = currentDeviceData[0]; // Analyze the first device
+
+    // 2. Open Modal & Show Loader
+    aiModal.classList.remove('hidden');
+    aiText.innerText = "";
+    aiLoader.classList.remove('hidden');
+
+    try {
+        // 3. Call Node Server
+        const res = await fetch('http://localhost:3000/ai-analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scanData: targetDevice })
+        });
+
+        const data = await res.json();
+
+        // 4. Show Result
+        aiLoader.classList.add('hidden');
+        typeWriterEffect(data.analysis || data.error);
+
+    } catch (err) {
+        aiLoader.classList.add('hidden');
+        aiText.innerText = "Error contacting AI Analyst.";
+    }
+});
+function typeWriterEffect(text) {
+    let i = 0;
+    aiText.innerHTML = "";
+    const speed = 20; 
+    
+    function type() {
+        if (i < text.length) {
+            aiText.innerHTML += text.charAt(i);
+            i++;
+            setTimeout(type, speed);
+        }
+    }
+    type();
 }

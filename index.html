@@ -27,7 +27,18 @@
                     <button id="scanBtn"><i class="fa-solid fa-search"></i></button>
                 </div>
             </div>
+            <button id="aiBtn" style="margin-top: 10px; background: linear-gradient(45deg, #a855f7, #ec4899); border: none; padding: 10px 20px;">
+    <i class="fa-solid fa-brain"></i> Ask AI Analyst
+</button>
 
+<div id="aiModal" class="modal hidden">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3><i class="fa-solid fa-robot"></i> AI Security Assessment</h3>
+        <div id="aiLoader" class="hidden">Thinking... <i class="fa-solid fa-spinner fa-spin"></i></div>
+        <p id="aiText" style="white-space: pre-line; line-height: 1.6;"></p>
+    </div>
+</div>
             <div class="device-list-header">Detected Devices</div>
             <div id="deviceList" class="device-list">
                 <div class="empty-state">Ready to scan...</div>
