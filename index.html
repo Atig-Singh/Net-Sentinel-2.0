@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Net-Sentinel | Vulnerability Scanner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="logo">
+                <i class="fa-solid fa-layer-group"></i> Net-Sentinel
+            </div>
+
+            <div class="search-box">
+                <label>Target IP</label>
+                <div class="input-wrapper">
+                    <input type="text" id="targetIp" placeholder="192.168.1.1" value="192.168.1.1">
+                    <button id="scanBtn"><i class="fa-solid fa-search"></i></button>
+                </div>
+            </div>
+
+            <div class="device-list-header">Detected Devices</div>
+            <div id="deviceList" class="device-list">
+                <div class="empty-state">Ready to scan...</div>
+            </div>
+        </aside>
+
+        <main class="main-view">
+            <div id="orbitContainer" class="orbit-system">
+                <div class="placeholder-msg">
+                    <i class="fa-solid fa-network-wired"></i>
+                    <h2>Select a Device</h2>
+                    <p>Scan the network and click a card to view vulnerability orbits.</p>
+                </div>
+            </div>
+            
+            <div id="detailsPanel" class="details-panel hidden">
+                <h3 id="detailTitle">Details</h3>
+                <p id="detailDesc">Select a vulnerability bubble to see info.</p>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
