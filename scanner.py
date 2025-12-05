@@ -2,122 +2,139 @@ import nmap
 import socket
 import sys
 import json
+
+target_ip = ""
+stealth_mode = "false"
+
 if len(sys.argv) > 1:
     target_ip = sys.argv[1]
+if len(sys.argv) > 2:
+    stealth_mode = sys.argv[2] # Passed as string "true" or "false"
 
-def analyze_risk(port, service_name):
+def analyze_risk(port, service_name, product="", version="", cves=[]):
     risk = "low"
     info = f"Standard {service_name} service"
+    
+    # Enrich info with product/version if available
+    if product:
+        info = f"{product} {version} ({service_name})".strip()
+
+    # CRITICAL: Elevate risk if CVEs are found
+    if cves:
+        risk = "high"
+        info += f" | {len(cves)} VULNERABILITIES DETECTED: " + "; ".join(cves)[:200] + "..."
+
     fix = "Ensure service is patched and updated."
-    if port == 21:
-        risk = "high"
-        info = "FTP: Insecure file transfer. Data sent in cleartext."
-        fix = "Disable FTP. Use SFTP (Port 22) or FTPS instead."
-    elif port == 23:
-        risk = "high"
-        info = "Telnet: Unencrypted remote access. Passwords visible!"
-        fix = "CRITICAL: Disable immediately. Use SSH (Port 22)."
-    elif port == 445:
-        risk = "high"
-        info = "SMB: Windows File Sharing. Vulnerable to Ransomware."
-        fix = "Block Port 445 on Firewall. Disable SMBv1 protocol."
-    elif port == 3389:
-        risk = "high"
-        info = "RDP: Windows Remote Desktop exposed to internet."
-        fix = "Place behind a VPN or restrict access via Firewall."
-    elif port == 5900:
-        risk = "high"
-        info = "VNC: Remote Desktop. Often has weak passwords."
-        fix = "Tunnel VNC through SSH or use a VPN."
-    elif port == 80 or port == 8080:
-        risk = "medium"
-        info = "HTTP: Web traffic is unencrypted."
-        fix = "Enforce HTTPS (Port 443) with a valid SSL certificate."
-    elif port == 3306:
-        risk = "medium"
-        info = "MySQL: Database listening on network."
-        fix = "Bind to localhost (127.0.0.1) or restrict IP access."
-    elif port == 5432:
-        risk = "medium"
-        info = "PostgreSQL: Database listening on network."
-        fix = "Configure pg_hba.conf to restrict remote connections."
-    elif port == 25:
-        risk = "medium"
-        info = "SMTP: Email Relay. Can be used for spam."
-        fix = "Disable open relay configuration."
-    elif port == 554:
-        risk = "medium"
-        info = "RTSP: Camera stream. Often has weak/default credentials."
-        fix = "Update camera firmware and set a strong password."
-    elif port == 5555:
-        risk = "medium"
-        info = "ADB: Android Debug Bridge exposed."
-        fix = "Disable 'Wireless Debugging' on the Android device."
-    elif port == 22:
-        risk = "low"
-        info = "SSH: Secure remote access."
-        fix = "Use Key-based authentication and disable root login."
-    elif port == 443:
-        risk = "low"
-        info = "HTTPS: Secure encrypted web traffic."
-        fix = "Ensure TLS 1.2/1.3 is enabled."
-    elif port == 53:
-        risk = "low"
-        info = "DNS: Domain Name Service."
-        fix = "Ensure recursion is disabled if not public."
-    elif port == 631:
-        risk = "low"
-        info = "IPP: Internet Printing Protocol."
-        fix = "Restrict access to local network only."
+
+    # Heuristic Checks (Keep these for quick categorization even if no CVEs found)
+    if risk == "low": # Only apply strict heuristics if not already flagged by CVEs
+        if port == 21:
+            risk = "high"
+            info += " (FTP Insecure)"
+            fix = "Disable FTP. Use SFTP (Port 22) or FTPS instead."
+        elif port == 23:
+            risk = "high"
+            info += " (Telnet Unencrypted)"
+            fix = "CRITICAL: Disable immediately. Use SSH (Port 22)."
+        elif port == 3389 or port == 5900:
+            risk = "high"
+            info += " (Remote Desktop Exposed)"
+            fix = "Place behind a VPN or restrict access via Firewall."
+        elif port == 80 or port == 8080:
+            risk = "medium"
+            fix = "Enforce HTTPS (Port 443) with a valid SSL certificate."
 
     return risk, info, fix
+
 def guess_device_type(host_data, open_ports):
-  
-    guessed_type = "Unknown Device"
-    
+    # Check for Nmap OS match first
+    if 'osmatch' in host_data and host_data['osmatch']:
+        # Return the highest accuracy match
+        best_match = host_data['osmatch'][0]
+        if 'name' in best_match:
+            return best_match['name']
+
+    # Fallback Heuristics
     if 'vendor' in host_data and host_data['vendor']:
         vendor_name = list(host_data['vendor'].values())[0].lower()
-        
         if "apple" in vendor_name: return "Apple Device"
         if "espressif" in vendor_name: return "Smart Home (IoT)"
-        if "raspberry" in vendor_name: return "Raspberry Pi"
-        if "canon" in vendor_name or "hp" in vendor_name or "epson" in vendor_name: return "Printer"
-        if "synology" in vendor_name: return "NAS Server"
-    if 631 in open_ports: return "Printer"         
-    if 554 in open_ports: return "IoT Camera"     
     if 53 in open_ports: return "Router/Gateway"   
-    if 3389 in open_ports: return "Windows PC"     
-    if 22 in open_ports and 80 not in open_ports: return "Linux Server"
-    if 80 in open_ports or 443 in open_ports: return "Web Server"
     
     return "Workstation"
-ip=target_ip
-nm=nmap.PortScanner()
-output_list=[]
-scanning=nm.scan(hosts=ip,ports="20-1024,3306,8080,5555,554,631",arguments="-sT -T4")#NORMAL SCAN
-#scanning=nm.scan(hosts=ip,arguments="-sV --script vuln")#DEEP SCAN
-for host in nm.all_hosts():
-    open_ports_list = []
-    vuln_list = []
-    for proto in nm[host].all_protocols():
-        for port in (nm[host][proto].keys()): 
-            state = nm[host][proto][port]["state"]
 
-            if state == "open":
-                open_ports_list.append(port)
-                service = nm[host][proto][port]["name"]
-                risk_status,info_status,fix_status=analyze_risk(port,service)
-                vuln_list.append({
-                    "port": port,
-                    "service": service,
-                    "risk": risk_status,
-                    "info": info_status,
-                    "remediation": fix_status
-                })
-        device=guess_device_type(nm[host],open_ports_list)
+if not target_ip:
+    print("[]")
+    sys.exit(0)
+
+try:
+    nm=nmap.PortScanner()
+    output_list=[]
+    
+    # BASE ARGUMENTS: Standard Service + OS Detection (Optimized for Speed)
+    # Removing '--script vuln' by default as it causes extreme delays/timeouts on consumer networks.
+    # Re-enable if dedicated "Deep Vulnerability Scan" is requested.
+    scan_args = "-sV -O --version-light"
+    
+    # STEALTH MODE (Predator Protocol)
+    # -T2: Slower timing to evade IDS
+    # -f: Fragment packets
+    # -D RND:5: Send decoys
+    if stealth_mode.lower() == "true":
+        scan_args += " -T2 -f -D RND:5"
+    else:
+        scan_args += " -T4 --max-retries 1" # Fast scan with limited retries
+
+    # Execute Scan
+    # Note: On Windows, -f/mtu might require Npcap driver support with loopback issues, 
+    # but we follow user request for 'all features'.
+    scanning=nm.scan(hosts=target_ip, arguments=scan_args)
+
+    for host in nm.all_hosts():
+        open_ports_list = []
+        vuln_list = []
+        
+        protocols = nm[host].all_protocols()
+        if not protocols: 
+            continue
+
+        for proto in protocols:
+            for port in (nm[host][proto].keys()): 
+                state = nm[host][proto][port]["state"]
+
+                if state == "open":
+                    open_ports_list.append(port)
+                    service = nm[host][proto][port]["name"]
+                    product = nm[host][proto][port].get("product", "")
+                    version = nm[host][proto][port].get("version", "")
+                    
+                    # Extract Script Results (CVEs)
+                    cves_found = []
+                    script_output = nm[host][proto][port].get("script", {})
+                    for script_id, result in script_output.items():
+                        cves_found.append(f"[{script_id}] {result.strip()}")
+
+                    risk_status,info_status,fix_status=analyze_risk(port,service, product, version, cves_found)
+                    
+                    vuln_list.append({
+                        "port": port,
+                        "service": service,
+                        "product": product,
+                        "version": version,
+                        "risk": risk_status,
+                        "info": info_status,
+                        "remediation": fix_status,
+                        "cves": cves_found # Pass raw CVE list for UI
+                    })
+        
+        device=guess_device_type(nm[host], open_ports_list)
         output_list.append({
-        "ip": host,
-        "type": device,
-        "vulns": vuln_list
+            "ip": host,
+            "type": device,
+            "vulns": vuln_list
         })
-print(json.dumps(output_list))
+    print(json.dumps(output_list))
+except Exception as e:
+    # Print empty list or error object as JSON so server doesn't fail
+    error_response = [{"error": str(e), "ip": target_ip, "type": "Scan Failed", "vulns": []}]
+    print(json.dumps(error_response))

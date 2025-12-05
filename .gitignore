@@ -1,0 +1,8 @@
+node_modules/
+.env
+__pycache__/
+*.log
+scan_history.json
+stress_test_results.json
+.gemini/
+.DS_Store
